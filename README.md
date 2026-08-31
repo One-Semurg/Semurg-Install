@@ -92,6 +92,13 @@ docker compose up
 `seccomp=unconfined`, a data volume). Then open the health check at
 <http://127.0.0.1:4100/api/health> (compose maps container `:4000` → host loopback `:4100`).
 
+**On Windows (Intel/AMD):** install [Docker Desktop](https://www.docker.com/products/docker-desktop/) —
+on first run it enables **WSL2** for you (one reboot), so there is **no separate Ubuntu to install** and
+no Linux distro to configure by hand; Docker Desktop bundles and manages its own WSL2 Linux VM. Then open
+the **WSL2 (Ubuntu) terminal** Docker Desktop provides and run the three lines above. A Windows PC is
+x86_64, so the amd64 image runs at **native speed through WSL2** — not emulated. **Intel Macs** use the
+same Docker steps in a normal terminal.
+
 > **x86_64 only — no Mac ARM.** The image is amd64 and the engine's kernels are AVX2 / AVX-512 (with a
 > `generic` x86_64 floor), so it runs on **AMD and Intel**. **Apple Silicon (Mac ARM / arm64) is not
 > supported** — even under Docker the amd64 image would run emulated, without the native IO path; an arm64

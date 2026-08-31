@@ -20,10 +20,13 @@ The install gives you:
 
 - the native engine,
 - a **web console on port 4000**,
-- the **`/v1` data API** for loading and querying your own data,
-- the **`/api` benchmark API**, so you can reproduce results on your own hardware.
+- the **`/v1` data API** for loading and querying your own data (calls need an
+  `Authorization: Bearer <token>` — the installer prints the token in its SUCCESS banner),
+- `/api/health` and `/api/version` for liveness and build provenance.
 
-A fresh node starts empty; you load your own data through `/v1`.
+The node comes up with a small **Panama Papers demo graph preloaded**, so you have something to query
+immediately (pass `SEMURG_PRELOAD_PANAMA=0` at install to start empty). You load your own data through `/v1`.
+Benchmarks live in the separate [Semurg-Benchmark-Suite](https://github.com/One-Semurg/Semurg-Benchmark-Suite).
 
 ---
 
@@ -68,7 +71,7 @@ sudo ./semurg-install.sh
 ```
 
 The installer is idempotent (safe to re-run) and fails with a plain-English reason, never a stack trace.
-You will see seven steps: **preflight → hardware scan → dependencies → engine → service → verify → done**.
+You will see seven steps: **preflight → hardware scan → dependencies → engine → configure → license → start & verify**.
 
 ---
 
@@ -162,10 +165,13 @@ hardware. There is no third-party or hosted dependency.
 ## Load and query your own data
 
 ```bash
-# health / version
+# health / version — no auth needed
 curl -s http://localhost:4000/api/version
 
-# load and query through the /v1 data API (see the console for the interactive surface)
+# /v1 data API — needs your token (shown in the install SUCCESS banner; also in /etc/semurg/semurg.env)
+TOKEN=<your-token>
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:4000/v1/status
+# ...then ingest + query the same way. The web console gives you all of this through the browser.
 ```
 
 The web console gives you the same capability through the browser: ingest a source, watch it land, and

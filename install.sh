@@ -59,6 +59,7 @@ cat <<'DONE'
 Semurg is installed. Next:
   * Web console:  http://<this-host>:4000       (locally: http://localhost:4000)
   * Data API:     http://<this-host>:4000/v1    (load and query your own data)
-  * Admin login:  run  sudo ./provision-admin.sh   in the unpacked semurg_installer/ to set up admin + TOTP
+  * Admin UI:     auto-provisioned during install -- the one-time admin secret + console URL are in the
+                  SUCCESS banner above (also saved to /opt/semurg/tmp/.admin_bootstrap_banner). Save it.
 See https://github.com/One-Semurg/Semurg-Install for the full guide.
 DONE

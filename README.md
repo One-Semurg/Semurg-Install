@@ -1,8 +1,9 @@
 # Semurg-Install
 
-The official one-command installer for **Semurg**. It downloads and runs the released Semurg engine on
-your own machine. **Your first node is always free** — install it, load your own data, and query it the
-moment it lands.
+The official one-command installer for **Semurg** — the universal operating system for intelligence: one
+platform where your data, models, and agents run on a single copy on your own hardware. It downloads and
+runs the released Semurg engine on your own machine. **Your first node is always free** — install it, load
+your own data, and query it the moment it lands.
 
 This repository is the **installer only** (a small, verifiable bootstrap script). It does **not** contain
 the engine source. The engine is downloaded, checksum-verified, from the official release channel.
@@ -175,7 +176,22 @@ curl -s -H "Authorization: Bearer $TOKEN" http://localhost:4000/v1/status
 ```
 
 The web console gives you the same capability through the browser: ingest a source, watch it land, and
-query it through any lens.
+query it through any lens. Full, copy-pasteable detail for every surface is in the documentation below.
+
+---
+
+## Documentation
+
+Once your node is running, these guides cover every way to use it — all copy-pasteable, and honest
+about what is live today:
+
+| Guide | What it covers |
+|---|---|
+| **[docs/api.md](docs/api.md)** | The REST `/v1` API — read (`query`), write (`ingest`), generate (SSE), AI memory, auth, errors. **Start here.** |
+| **[docs/protocols.md](docs/protocols.md)** | The wire protocols — the ATP binary fast path for low-latency reads, SSE streaming, and what the WebSocket actually is. |
+| **[docs/sdks.md](docs/sdks.md)** | Client libraries for 11 languages, plus the "just use HTTP" path that works from anywhere today. |
+| **[docs/extensions.md](docs/extensions.md)** | Tiers (Core / Extensions / Integrations), how to build your own extension, and the zero-serialization bare-metal pattern. |
+| **[docs/access.md](docs/access.md)** | Reaching the data plane and the admin console from another machine (SSH tunnels, exposing safely). |
 
 ---
 

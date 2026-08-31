@@ -33,7 +33,7 @@ A fresh node starts empty; you load your own data through `/v1`.
 |---|---|---|
 | OS | **Ubuntu 24.04 LTS** | 22.04 needs a separate build (preflight tells you plainly) |
 | glibc | 2.38+ | 24.04 ships 2.39 |
-| Architecture | x86_64 (amd64) | arm64 not yet built |
+| Architecture | **x86_64** (amd64) | **AMD and Intel both work** (the installer auto-picks the AVX-512 / AVX2 / generic engine variant for your CPU). Apple Silicon / Mac ARM (**arm64**) is **not supported yet** |
 | CPU | 4 physical cores | shards map 1:1 to physical cores |
 | RAM | 8 GB | residency budget derives from this |
 | Free disk | 20 GB | more is better (the store is a value log) |
@@ -72,26 +72,90 @@ You will see seven steps: **preflight → hardware scan → dependencies → eng
 
 ---
 
-## Start & access the admin console
+## Not on Ubuntu? Install with Docker
+
+The bare-metal Ubuntu installer above is the **primary** path — it gives the full deep-queue O_DIRECT
+performance. If you are on **Windows, macOS (Intel), or another Linux distro**, run Semurg in Docker
+instead:
+
+```bash
+curl -fsSLO https://one.semurg.io/dl/semurg-docker.tar.gz
+tar xzf semurg-docker.tar.gz && cd semurg-docker
+docker compose up
+```
+
+`docker compose up` supplies the three capabilities the engine needs (`memlock` unlimited,
+`seccomp=unconfined`, a data volume). Then open the health check at
+<http://127.0.0.1:4100/api/health> (compose maps container `:4000` → host loopback `:4100`).
+
+> **x86_64 only — no Mac ARM.** The image is amd64 and the engine's kernels are AVX2 / AVX-512 (with a
+> `generic` x86_64 floor), so it runs on **AMD and Intel**. **Apple Silicon (Mac ARM / arm64) is not
+> supported** — even under Docker the amd64 image would run emulated, without the native IO path; an arm64
+> build is not available yet.
+
+Docker gives you the data console + `/v1` API. For the **admin cluster UI**, the bare-metal install is
+recommended (it provisions the fail-closed TLS admin console described next).
+
+---
+
+## Start & access the admin cluster UI
 
 The installer registers and starts a systemd unit, so the engine is already running when it finishes.
+There are **two** surfaces:
 
-- **Web console / admin UI:** `http://<this-host>:4000` (locally, `http://localhost:4000`).
-- **Set up admin + TOTP:** from the unpacked `semurg_installer/` directory, run:
-  ```bash
-  sudo ./provision-admin.sh
-  ```
-  This provisions the administrator and its TOTP (time-based one-time-password) login, then you sign in
-  to the console.
-- **Manage the service:**
-  ```bash
-  sudo systemctl status semurg     # is it running?
-  sudo systemctl restart semurg    # restart
-  journalctl -u semurg -f          # follow logs
-  ```
+**1. The data console + API — port 4000 (HTTP).** Where you load and query your own data.
+- Web console: `http://<this-host>:4000` (locally `http://localhost:4000`)
+- Data API: `http://<this-host>:4000/v1`  ·  health: `http://<this-host>:4000/api/version`
 
-A **hosted** console for the reference cluster runs at `https://cluster.semurg.io`; your own node's
-console is the `:4000` above.
+**2. The admin cluster UI — port 4610 (HTTPS, loopback-only).** The operator console for the cluster.
+It is **fail-closed and provisioned automatically during install** (you do not run anything by hand). At
+the end of the install, the green **`SUCCESS — Semurg is running`** banner prints everything you need —
+**copy it then; it is shown once** — and it is also saved to **`/opt/semurg/tmp/.admin_bootstrap_banner`**:
+
+```
+Console URL : https://127.0.0.1:4610/cluster   (loopback-only)
+SSH tunnel  : ssh -N -L 4610:127.0.0.1:4610 root@<your-server>   then open  https://localhost:4610/cluster
+Admin secret (one-time; type into the unlock form): ********
+```
+
+> ⚠️ **Save the admin secret now — it is shown only ONCE.** Semurg stores only a *hash* of it; the
+> plaintext exists only in this banner and the saved banner file
+> (`/opt/semurg/tmp/.admin_bootstrap_banner`). If you lose both, you must re-mint it with
+> `SEMURG_ADMIN_REPROVISION=1`. Copy it somewhere safe before you close the terminal.
+
+To reach it:
+- **On the box:** open `https://127.0.0.1:4610/cluster` (accept the self-signed cert).
+- **Remotely:** it is loopback-bound for safety, so tunnel first —
+  ```bash
+  ssh -N -L 4610:127.0.0.1:4610 root@<your-server>
+  ```
+  then open `https://localhost:4610/cluster` in your browser.
+- **Log in:** enter the one-time **admin secret** from the banner. If two-factor **TOTP** is enabled (the
+  banner will then also show a TOTP secret), add that secret to your authenticator app — Google
+  Authenticator, Authy, 1Password, … — and complete the code.
+
+**Where do I get the secret / did I miss it?**
+- It is in the **`SUCCESS`** banner at the end of the install — copy it there.
+- Missed it or closed the terminal? Re-read the saved banner anytime:
+  ```bash
+  sudo cat /opt/semurg/tmp/.admin_bootstrap_banner
+  ```
+- Not sure of the URL? Open the plain-HTTP **signpost** `http://<this-host>:4000/cluster-admin` — it tells
+  you the reachable admin path.
+- Lost it entirely? Mint fresh credentials: re-run the install with `SEMURG_ADMIN_REPROVISION=1`.
+
+Other knobs: skip the admin portal at install with `SEMURG_ADMIN_PORTAL=0`; change the port/bind with
+`SEMURG_ADMIN_PORT` / `SEMURG_ADMIN_BIND`.
+
+**Manage the service:**
+```bash
+sudo systemctl status semurg     # is it running?
+sudo systemctl restart semurg    # restart
+journalctl -u semurg -f          # follow logs
+```
+
+Your admin console is entirely **yours and local** — the loopback `:4610/cluster` above, on your own
+hardware. There is no third-party or hosted dependency.
 
 ---
 

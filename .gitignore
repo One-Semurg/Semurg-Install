@@ -1,0 +1,21 @@
+# secrets / credentials — never commit
+*token*
+*secret*
+*.pem
+*.key
+*.lic
+*credential*
+.env
+.env.*
+.netrc
+
+# downloaded release artifacts (fetched at install time, never committed)
+*.tar.gz
+LATEST.json
+SHA256SUMS
+semurg_installer/
+
+# os / editor
+.DS_Store
+*.log
+tmp/

@@ -31,7 +31,7 @@ MANIFEST="$DL_BASE/LATEST.json"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "error: '$1' is required but not installed" >&2; exit 1; }; }
-need curl; need tar; need sha256sum; need openssl
+need curl; need tar; need sha256sum
 
 echo "Semurg installer -- fetching release manifest ($MANIFEST) ..."
 curl -fsSL --connect-timeout 15 --max-time 300 --retry 3 --retry-delay 2 "$MANIFEST" -o "$WORK/LATEST.json" \
@@ -43,6 +43,12 @@ curl -fsSL --connect-timeout 15 --max-time 300 --retry 3 --retry-delay 2 "$MANIF
 SEMURG_RELEASE_PUBKEY='-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAGmSXmU++yNyeIS3rHFjAH1ppyErRrkxcovD6ljt1B4w=
 -----END PUBLIC KEY-----'
+# ensure openssl for signature verification (auto-install on apt boxes; REFUSE if it cannot be obtained).
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "  installing openssl (needed to verify the release signature) ..."
+  command -v apt-get >/dev/null 2>&1 && apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq openssl >/dev/null 2>&1 || true
+fi
+command -v openssl >/dev/null 2>&1 || { echo "REFUSING: openssl is required to verify the release signature but is not installed and could not be auto-installed. Install openssl, then re-run." >&2; exit 1; }
 echo "Verifying release signature (ed25519, pinned key) ..."
 curl -fsSL --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 "$MANIFEST.sig" -o "$WORK/LATEST.json.sig" \
   || { echo "REFUSING: the release channel served no signature ($MANIFEST.sig); cannot verify authenticity. Nothing installed." >&2; exit 1; }

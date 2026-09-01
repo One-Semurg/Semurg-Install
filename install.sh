@@ -31,11 +31,25 @@ MANIFEST="$DL_BASE/LATEST.json"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "error: '$1' is required but not installed" >&2; exit 1; }; }
-need curl; need tar; need sha256sum
+need curl; need tar; need sha256sum; need openssl
 
 echo "Semurg installer -- fetching release manifest ($MANIFEST) ..."
 curl -fsSL --connect-timeout 15 --max-time 300 --retry 3 --retry-delay 2 "$MANIFEST" -o "$WORK/LATEST.json" \
   || { echo "error: could not reach the Semurg release channel ($MANIFEST). Check https://one.semurg.io status or your network connection, then re-run." >&2; exit 1; }
+
+# --- verify the manifest ed25519 SIGNATURE against a PINNED public key BEFORE trusting anything in it.
+#     The signature is produced OFFLINE; compromising the download origin alone cannot forge it. REFUSE if
+#     the channel serves no signature or the signature does not verify. ---
+SEMURG_RELEASE_PUBKEY='-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAGmSXmU++yNyeIS3rHFjAH1ppyErRrkxcovD6ljt1B4w=
+-----END PUBLIC KEY-----'
+echo "Verifying release signature (ed25519, pinned key) ..."
+curl -fsSL --connect-timeout 15 --max-time 120 --retry 3 --retry-delay 2 "$MANIFEST.sig" -o "$WORK/LATEST.json.sig" \
+  || { echo "REFUSING: the release channel served no signature ($MANIFEST.sig); cannot verify authenticity. Nothing installed." >&2; exit 1; }
+printf '%s\n' "$SEMURG_RELEASE_PUBKEY" > "$WORK/semurg_release_pub.pem"
+openssl pkeyutl -verify -pubin -inkey "$WORK/semurg_release_pub.pem" -rawin -in "$WORK/LATEST.json" -sigfile "$WORK/LATEST.json.sig" >/dev/null 2>&1 \
+  || { echo "REFUSING: release manifest signature INVALID -- the download channel may be compromised, or this bootstrap is stale (re-fetch from github.com/One-Semurg/Semurg-Install). Nothing installed." >&2; exit 1; }
+echo "  release signature verified"
 
 # Parse JSON without a jq dependency.
 val() { grep -oE "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$WORK/LATEST.json" | head -1 | sed -E "s/.*:[[:space:]]*\"([^\"]*)\"/\1/"; }

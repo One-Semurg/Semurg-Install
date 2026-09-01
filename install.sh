@@ -16,6 +16,17 @@
 set -euo pipefail
 
 DL_BASE="${SEMURG_DL_BASE:-https://one.semurg.io/dl}"
+# A2: the download origin MUST be https -- a cleartext origin lets a network attacker swap BOTH the
+# installer and the checksum that "verifies" it. Refuse http:// unless the user explicitly opts in.
+case "$DL_BASE" in
+  https://*) : ;;
+  *) if [ "${SEMURG_ALLOW_INSECURE_DL:-}" = 1 ]; then
+       echo "WARNING: SEMURG_DL_BASE is not https ($DL_BASE) -- proceeding over cleartext by request." >&2
+     else
+       echo "error: SEMURG_DL_BASE must be https:// (got '$DL_BASE'). A cleartext origin lets a network attacker replace the installer and its checksum together. Set SEMURG_ALLOW_INSECURE_DL=1 only if you fully trust this network." >&2
+       exit 1
+     fi ;;
+esac
 MANIFEST="$DL_BASE/LATEST.json"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 
@@ -23,7 +34,8 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "error: '$1' is required but 
 need curl; need tar; need sha256sum
 
 echo "Semurg installer -- fetching release manifest ($MANIFEST) ..."
-curl -fsSL "$MANIFEST" -o "$WORK/LATEST.json"
+curl -fsSL --connect-timeout 15 --max-time 300 --retry 3 --retry-delay 2 "$MANIFEST" -o "$WORK/LATEST.json" \
+  || { echo "error: could not reach the Semurg release channel ($MANIFEST). Check https://one.semurg.io status or your network connection, then re-run." >&2; exit 1; }
 
 # Parse JSON without a jq dependency.
 val() { grep -oE "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$WORK/LATEST.json" | head -1 | sed -E "s/.*:[[:space:]]*\"([^\"]*)\"/\1/"; }
@@ -33,7 +45,8 @@ echo "  current release: version=$VERSION commit=$COMMIT"
 
 TARBALL="$WORK/$(basename "$URL")"
 echo "Downloading $URL ..."
-curl -fsSL "$URL" -o "$TARBALL"
+curl -fsSL --connect-timeout 15 --max-time 900 --retry 3 --retry-delay 2 "$URL" -o "$TARBALL" \
+  || { echo "error: download of the installer bundle failed ($URL). Check your network and re-run; nothing was installed." >&2; exit 1; }
 
 echo "Verifying sha256 ..."
 echo "${SHA}  ${TARBALL}" | sha256sum -c - \

@@ -84,6 +84,7 @@ instead:
 
 ```bash
 curl -fsSLO https://one.semurg.io/dl/semurg-docker.tar.gz
+curl -fsSL https://one.semurg.io/dl/SHA256SUMS | grep ' semurg-docker.tar.gz$' | sha256sum -c -   # must print: OK
 tar xzf semurg-docker.tar.gz && cd semurg-docker
 docker compose up
 ```

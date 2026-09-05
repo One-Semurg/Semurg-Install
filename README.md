@@ -78,36 +78,57 @@ You will see seven steps: **preflight → hardware scan → dependencies → eng
 
 ## Not on Ubuntu? Install with Docker
 
-The bare-metal Ubuntu installer above is the **primary** path — it gives the full deep-queue O_DIRECT
-performance. If you are on **Windows, macOS (Intel), or another Linux distro**, run Semurg in Docker
-instead:
+The bare-metal Ubuntu installer above is the **primary** path (full deep-queue O_DIRECT performance).
+On **Windows, macOS (Intel), or another Linux distro**, run Semurg in Docker. **One command** takes you
+from nothing to a running, **token-authenticated** node: it installs Docker if missing, verifies the
+**signed** release, loads the **prebuilt** amd64 image (no local build), starts it with the three
+required capabilities, and prints your `/v1` API token + URL.
+
+**Linux / Intel Mac / inside WSL2:**
 
 ```bash
-curl -fsSLO https://one.semurg.io/dl/semurg-docker.tar.gz
-curl -fsSL https://one.semurg.io/dl/SHA256SUMS | grep ' semurg-docker.tar.gz$' | sha256sum -c -   # must print: OK
-tar xzf semurg-docker.tar.gz && cd semurg-docker
-docker compose up
+curl -fsSL https://one.semurg.io/dl/semurg-docker-run.sh | sudo bash
 ```
 
-`docker compose up` supplies the three capabilities the engine needs (`memlock` unlimited,
-`seccomp=unconfined`, a data volume). Then open the health check at
-<http://127.0.0.1:4100/api/health> (compose maps container `:4000` → host loopback `:4100`).
+**Windows (Intel/AMD)** — in **PowerShell**, with Docker Desktop installed and running (no separate WSL
+Ubuntu distro, no reboot, no admin):
 
-**On Windows (Intel/AMD):** install [Docker Desktop](https://www.docker.com/products/docker-desktop/) —
-on first run it enables **WSL2** for you (one reboot), so there is **no separate Ubuntu to install** and
-no Linux distro to configure by hand; Docker Desktop bundles and manages its own WSL2 Linux VM. Then open
-the **WSL2 (Ubuntu) terminal** Docker Desktop provides and run the three lines above. A Windows PC is
-x86_64, so the amd64 image runs at **native speed through WSL2** — not emulated. **Intel Macs** use the
-same Docker steps in a normal terminal.
+```powershell
+irm https://one.semurg.io/install.ps1 | iex
+```
 
-> **x86_64 only — no Mac ARM.** The image is amd64 and the engine's kernels are AVX2 / AVX-512 (with a
+Then open <http://127.0.0.1:4100/api/health>. Every `/v1` call needs the bearer token the command prints
+(`Authorization: Bearer <token>`); `/v1` returns `401` without it, so the published port is never an
+anonymous read/write endpoint. Lost the token later? `docker exec semurg cat /var/lib/semurg/.api_token`.
+
+<details><summary>Prefer to run each step yourself?</summary>
+
+```bash
+# fetch the PREBUILT image + the SIGNED manifest, verify, load, run (no local build)
+curl -fsSLO https://one.semurg.io/dl/semurg-substrate-r11-amd64.tar.gz
+curl -fsSLO https://one.semurg.io/dl/LATEST.json
+curl -fsSLO https://one.semurg.io/dl/LATEST.json.sig
+# verify the SIGNED image digest against the pinned ed25519 key (tamper-proof), then load + run:
+docker load -i semurg-substrate-r11-amd64.tar.gz
+docker run -d --name semurg \
+  --platform linux/amd64 --ulimit memlock=-1 --security-opt seccomp=unconfined \
+  -v semurg-data:/var/lib/semurg -p 127.0.0.1:4100:4000 semurg/substrate:r11-test
+docker logs -f semurg      # prints the ARMED line + your API token
+```
+
+`docker compose up` also works after `docker load` (the bundled `docker-compose.yml` sets
+`pull_policy: never`, `platform: linux/amd64`, and supplies the three capabilities). Omit any capability
+and the container exits non-zero and prints exactly which flag is missing — it never starts degraded.
+</details>
+
+> **x86_64 only — no Mac ARM.** The image is amd64 and the engine kernels are AVX2 / AVX-512 (with a
 > `generic` x86_64 floor), so it runs on **AMD and Intel**. **Apple Silicon (Mac ARM / arm64) is not
-> supported** — even under Docker the amd64 image would run emulated, without the native IO path; an arm64
-> build is not available yet.
+> supported** — Docker would run the amd64 image emulated under Rosetta, which cannot execute the AVX
+> code paths; the container **refuses to start with a plain message** rather than crashing. On Apple
+> Silicon, run Semurg on a **cloud x86_64 Linux VM** instead.
 
 Docker gives you the data console + `/v1` API. For the **admin cluster UI**, the bare-metal install is
 recommended (it provisions the fail-closed TLS admin console described next).
-
 ---
 
 ## Start & access the admin cluster UI

@@ -13,6 +13,16 @@
 #   sudo bash install.sh            # installs a systemd unit; needs root
 #
 # Override the download origin (e.g. an internal mirror) with SEMURG_DL_BASE.
+
+# macOS is NOT supported: the engine is welded to the Linux kernel (io_uring, O_DIRECT, resctrl) and to
+# x86-64 AVX. Detect Darwin FIRST and refuse cleanly, before any Linux-only command runs.
+if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+  echo "Semurg does not support macOS (this is a $(uname -m) Mac)." >&2
+  echo "Semurg runs on Ubuntu on AMD or Intel (x86-64) only:" >&2
+  echo "  - a cloud Ubuntu instance on AMD/Intel (the first node is free), or a separate Linux box" >&2
+  echo "  - Apple Silicon cannot run it even in Docker (the engine needs x86-64 AVX)" >&2
+  exit 1
+fi
 set -euo pipefail
 
 DL_BASE="${SEMURG_DL_BASE:-https://one.semurg.io/dl}"
